@@ -1,5 +1,3 @@
-# smartwalkingcane
-An assistive technology solution for the visually impaired
 # Smart Walking Cane 
 
 This project is a smart walking cane designed to assist visually impaired individuals. It uses sensors to detect obstacles and alert the user through vibrations or sounds.
@@ -22,6 +20,7 @@ This project is a smart walking cane designed to assist visually impaired indivi
 
 ## Circuit Diagram
 
+<img width="613" alt="circuitdiagram" src="https://github.com/user-attachments/assets/398ec5e4-2dcc-467d-8be2-a87f724ebaf3" />
 
 
 ## How to Use
@@ -38,7 +37,7 @@ This project is a smart walking cane designed to assist visually impaired indivi
 
 ## 📷 Project Images
 
-*(Upload or link to images/videos of your prototype)*
+
 
 ## 👨‍💻 Author
 
