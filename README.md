@@ -35,9 +35,6 @@ This project is a smart walking cane designed to assist visually impaired indivi
 - Add GPS for location tracking
 - Bluetooth module for emergency alerts
 
-## Upgraded ideas:
-- Addition of Water sensor
-
 ## License
 
 This project is developed by the Torsion SIG of **IET NITK**, National Institute of Technology Karnataka (NITK).
