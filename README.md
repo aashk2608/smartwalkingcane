@@ -26,23 +26,23 @@ This project is a smart walking cane designed to assist visually impaired indivi
 ## How to Use
 
 1. Connect the components according to the circuit.
-2. Upload the code (``) using the Arduino IDE.
+2. Upload the sensor codes using the Arduino IDE.
 3. Power the system using a 9V battery via the Vin pin.
 4. The cane will beep or vibrate when it detects obstacles.
 
-## Future Improvements
+## Improvements
 
 - Add GPS for location tracking
 - Bluetooth module for emergency alerts
 
-## 📷 Project Images
+## Upgraded ideas:
+- Addition of Water sensor
 
+## License
 
+This project is developed by the Torsion SIG of **IET NITK**, National Institute of Technology Karnataka (NITK).
 
-## 👨‍💻 Author
+All rights reserved.  
+Unauthorized use, reproduction, or distribution of this code, hardware designs, or documentation is strictly prohibited without prior permission from IET NITK.
 
-- [Your Name](your-github-profile-link)
-
-## 📜 License
-
-This project is open-source and available under the MIT License.
+For collaboration or academic use, please contact the club through official channels.
