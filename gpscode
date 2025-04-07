@@ -1,0 +1,173 @@
+#include <ThingsBoard.h>
+#include <WiFi.h>
+#include <NewPing.h>
+#include <HTTPClient.h>
+#include <TinyGPS++.h>
+
+#define TRIG_PIN 5
+#define ECHO_PIN 18
+#define BUZZER_PIN 19
+#define LED_PIN 21
+#define WIFI_STATUS_LED 2
+#define MAX_DISTANCE 400
+#define DISTANCE_THRESHOLD 100
+#define BUZZER_VOLUME 100
+#define GPS_TX 16
+#define GPS_RX 17
+
+constexpr char WIFI_SSID[] PROGMEM = "moto g82 5G";
+constexpr char WIFI_PASSWORD[] PROGMEM = "12345670";
+constexpr char TOKEN[] PROGMEM = "RkNPAr8Eyijn2BKHqPFI";
+constexpr char THINGSBOARD_SERVER[] PROGMEM = "demo.thingsboard.io";
+constexpr uint16_t THINGSBOARD_PORT PROGMEM = 1883U;
+constexpr uint32_t MAX_MESSAGE_SIZE PROGMEM = 128U;
+constexpr uint32_t SERIAL_DEBUG_BAUD PROGMEM = 115200U;
+
+constexpr char DISTANCE_KEY[] PROGMEM = "Distance";
+constexpr char LATITUDE_KEY[] PROGMEM = "Latitude";
+constexpr char LONGITUDE_KEY[] PROGMEM = "Longitude";
+constexpr char ACTUATOR_KEY[] PROGMEM = "actuator";
+constexpr const char OBSTACLE_TELEMETRY[] PROGMEM = "Detection";
+constexpr const char RPC_SWITCH_METHOD[] PROGMEM = "obstacle";
+
+WiFiClient espClient;
+ThingsBoard tb(espClient, MAX_MESSAGE_SIZE);
+NewPing sonar(TRIG_PIN, ECHO_PIN, MAX_DISTANCE);
+TinyGPSPlus gps;
+HardwareSerial gpsSerial(1);
+
+int distance, switch_state = 0;
+bool subscribed = false;
+
+void InitWiFi() {
+  Serial.print("Connecting to network: ");
+  Serial.println(WIFI_SSID);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected to AP");
+}
+
+bool reconnect() {
+  if (WiFi.status() == WL_CONNECTED) {
+    return true;
+  }
+  InitWiFi();
+  return true;
+}
+
+RPC_Response setServoSwitchState(RPC_Data &data) {
+  switch_state = data;
+  return RPC_Response("actuator", 0);
+}
+
+const std::array<RPC_Callback, 1U> callbacks = {
+  RPC_Callback{RPC_SWITCH_METHOD, setServoSwitchState}
+};
+
+int getDistance() {
+  delay(50);
+  return sonar.ping_cm();
+}
+
+void readGPS() {
+  while (gpsSerial.available() > 0) {
+    gps.encode(gpsSerial.read());
+  }
+}
+
+void sendGPSToThingsBoard() {
+  if (gps.location.isValid()) {
+    tb.sendTelemetryFloat(LATITUDE_KEY, gps.location.lat());
+    tb.sendTelemetryFloat(LONGITUDE_KEY, gps.location.lng());
+    Serial.print("Latitude: ");
+    Serial.println(gps.location.lat());
+    Serial.print("Longitude: ");
+    Serial.println(gps.location.lng());
+  } else {
+    Serial.println("Waiting for GPS signal...");
+  }
+}
+
+void setup() {
+  Serial.begin(SERIAL_DEBUG_BAUD);
+  gpsSerial.begin(9600, SERIAL_8N1, GPS_TX, GPS_RX);
+
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(WIFI_STATUS_LED, OUTPUT);
+
+  digitalWrite(LED_PIN, LOW);
+  analogWrite(BUZZER_PIN, 0);
+  digitalWrite(WIFI_STATUS_LED, LOW);
+
+  delay(1000);
+  InitWiFi();
+
+  HTTPClient http;
+  http.begin("http://demo.thingsboard.io");
+  int httpCode = http.GET();
+
+  if (httpCode > 0) {
+    Serial.print("ThingsBoard Server Response: ");
+    Serial.println(httpCode);
+  } else {
+    Serial.println("Cannot reach ThingsBoard!");
+  }
+
+  http.end();
+}
+
+void loop() {
+  delay(1000);
+  readGPS();
+
+  if (!reconnect()) {
+    return;
+  }
+
+  if (!tb.connected()) {
+    Serial.printf("Connecting to: (%s) with token (%s)\n", THINGSBOARD_SERVER, TOKEN);
+    digitalWrite(WIFI_STATUS_LED, LOW);
+
+    if (!tb.connect(THINGSBOARD_SERVER, TOKEN, THINGSBOARD_PORT)) {
+      Serial.println("Failed to connect to ThingsBoard");
+      return;
+    }
+  }
+
+  if (!subscribed) {
+    Serial.println("Subscribing for RPC...");
+    if (!tb.RPC_Subscribe(callbacks.cbegin(), callbacks.cend())) {
+      Serial.println("Failed to subscribe for RPC");
+      return;
+    }
+    digitalWrite(WIFI_STATUS_LED, HIGH);
+    subscribed = true;
+  }
+
+  distance = getDistance();
+  tb.sendTelemetryInt(DISTANCE_KEY, distance);
+
+  Serial.print("Distance = ");
+  Serial.println(distance);
+
+  if (distance <= DISTANCE_THRESHOLD && distance > 0) {
+    Serial.println("Obstacle Detected!");
+    tb.sendTelemetryString(OBSTACLE_TELEMETRY, "Obstacle Detected");
+    tb.sendAttributeBool(ACTUATOR_KEY, true);
+    digitalWrite(LED_PIN, HIGH);
+    analogWrite(BUZZER_PIN, BUZZER_VOLUME);
+  } else {
+    tb.sendTelemetryString(OBSTACLE_TELEMETRY, "Obstacle Not Detected");
+    tb.sendAttributeBool(ACTUATOR_KEY, false);
+    digitalWrite(LED_PIN, LOW);
+    analogWrite(BUZZER_PIN, 0);
+  }
+
+  sendGPSToThingsBoard();
+  tb.loop();
+}
